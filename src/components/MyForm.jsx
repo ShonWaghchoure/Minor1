@@ -12,6 +12,7 @@ const MyForm = ({ cmp }) => {
     const [certificateName, setCertificateName] = useState("");
     const [walletAddress, setWalletAddress] = useState("");
     const [pdfData, setPDFData] = useState("");
+    const [isRun,setIsRun]=useState(false)
     const certificateInput = useRef();
 
     const [certificateCID, setCertificateCID] = useState("");
@@ -114,8 +115,9 @@ const MyForm = ({ cmp }) => {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsRun(true)
         // call backend api here and pass data of csv from csvData StateVariable
         const blob = dataURItoBlob();
         if (!blob) {
@@ -137,7 +139,15 @@ const MyForm = ({ cmp }) => {
         const formData = new FormData();
         formData.append("file", blob, certificateName);
 
-        postCertificateToPinata(formData);
+       try {
+         await postCertificateToPinata(formData);
+       } catch (error) {
+        
+       }
+       finally{
+        setIsRun(false)
+       }
+        
     };
     return (
         <div className='flex items-center rounded-l-lg w-3/4 bg-[#ECECEC]'>
@@ -237,10 +247,15 @@ const MyForm = ({ cmp }) => {
 
                     <div className='text-center'>
                         <button
-                            className='bg-[#6361AC] p-2 w-32 rounded-lg text-white mt-5'
-                            onClick={handleSubmit}>
-                            Submit
+                        className={`bg-[#6361AC] p-2 w-32 rounded-lg text-white mt-5 ${
+                            isRun ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        onClick={handleSubmit}
+                        disabled={isRun}
+                        >
+                        {isRun ? 'Uploading...' : 'Submit'}
                         </button>
+
                     </div>
                 </form>
             </div>
