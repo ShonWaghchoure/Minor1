@@ -1,6 +1,6 @@
 import express from "express";
 
-import { getJSONData } from "./controllers/getJSONData.js";
+import { addAddress, getJSONData, mapEmail } from "./controllers/getJSONData.js";
 
 const app = express();
 
@@ -11,75 +11,16 @@ import path from 'path';
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 import { fileURLToPath } from 'url';
+import { ConnectDB } from "./db.js";
 const __filename = fileURLToPath(import.meta.url);
 
 const __dirname = path.dirname(__filename);
 
 app.use(cors());
-// import fs from 'fs';
-// import multipartMiddleware from 'connect-multiparty';
-// const filePath = './static' + '/document/Document.pdf';
-// import fileUpload from 'express-fileupload';
-// import bodyParser from 'body-parser';
-
-// app.use(express.json());
-
-// app.use(fileUpload());
-// app.post("/", (req, res) => {
-//     const filename = Date.now() + "_";
-//     const file = req.body;
-//     console.log(file);
-//     let uploadPath = __dirname + "/uploads/" + filename;
-//     file.mv(uploadPath, (err) => {
-//       if (err) {
-//         return res.send(Err);
-//       }
-//     });
-//     res.send(200);
-//   });
-
-
-
-
-
-// app.post('/receive', multipartMiddleware, (request, response) => {
-//     console.log(request.files.pdf_file.path);
-//     fs.readFile(request.files.pdf_file.path, (err, data) => {
-//         fs.writeFile(filePath, data, function (err) {
-//             if (err) throw err;
-//             response.send('Done')
-//         });
-//     })
-// })
-
-
-// const storage = multer.diskStorage({
-//   destination: function (req, file, cb) {
-//     cb(null, "uploads/");
-//   },
-//   filename: function (req, file, cb) {
-//     cb(null, file.originalname);
-//   },
-// });
-
-// const upload = multer({ dest: "uploads/" });
-// app.post("/upload", upload.single("pdf"), (req, res) => {
-//     const data = req.body.file;
-//     // const fileName = "temp.pdf";
-//     console.log(JSON.stringify(data));
-//     // fs.writeFile(`uploads/${fileName}`, data, (err) => {
-//     //     if (err) {
-//     //     console.error(err);
-//     //     res.status(500).send("Error uploading file");
-//     //     } else {
-//     //     res.send("File uploaded successfully");
-//     //     }
-//     // });
-//     res.send("hello");
-// });
-
 
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+
+ConnectDB()
 
 
 const Storage = multer.diskStorage({
@@ -115,8 +56,11 @@ app.post('/upload', upload.single('pdf'), (req, res) => {
     res.status(400).send({ error: error.message })
 })
 
+app.post('/getAddress',mapEmail)
+
+app.post("/addUser",addAddress)
   
 
 app.get("/getjsondata/:jsonCID", getJSONData);
 
-app.listen(4000, () => console.log("Server is running on port 5000"));
+app.listen(4000, () => console.log("Server is running on port 4000"));

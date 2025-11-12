@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Route, Routes, Navigate, Outlet, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 
@@ -18,23 +18,8 @@ import { certificateActions } from "./store/certificate-slice";
 import { useWeb3AuthConnect, useWeb3AuthUser } from "@web3auth/modal/react";
 import { useAccount } from "wagmi";
 
-// const Loader = () => (
-//   <div
-//     style={{
-//       display: "flex",
-//       alignItems: "center",
-//       justifyContent: "center",
-//       height: "100vh",
-//       background: "#0a0a0a",
-//       color: "white",
-//       fontSize: "1.2rem",
-//       flexDirection: "column",
-//     }}
-//   >
-//     <div className="loader mb-4 animate-spin border-4 border-gray-300 border-t-blue-500 rounded-full w-12 h-12"></div>
-//     <p>Loading Web3Auth...</p>
-//   </div>
-// );
+const backendBaseUrl = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:4000";
+
 
 const HomeRedirect = () => {
   const navigate = useNavigate();
@@ -93,6 +78,7 @@ const App = () => {
   const { isConnected, status, connect } = useWeb3AuthConnect();
   const { userInfo } = useWeb3AuthUser();
   const { address } = useAccount();
+  const lastSyncedUser = useRef({ email: null, address: null });
 
   console.log(
     "⚙️ Rendering App | isConnected:",
@@ -109,6 +95,46 @@ const App = () => {
         .catch((err) => console.error("❌ Web3Auth auto-login failed:", err));
     }
   }, [status, isConnected, connect]);
+
+  useEffect(() => {
+    const email = userInfo?.email;
+    if (!isConnected || !address || !email) return;
+
+    if (
+      lastSyncedUser.current.email === email &&
+      lastSyncedUser.current.address === address
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const syncUser = async () => {
+      try {
+        const response = await fetch(`${backendBaseUrl}/addUser`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, address }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data?.message || "Failed to register user");
+        }
+        if (!cancelled) {
+          lastSyncedUser.current = { email, address };
+          console.log("🗃️ User synced to DB:", data?.message || "OK");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("❌ Unable to sync user to backend:", error);
+        }
+      }
+    };
+
+    syncUser();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address, userInfo?.email]);
 
   useEffect(() => {
     const loadCertificates = async () => {

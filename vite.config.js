@@ -1,10 +1,51 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { NodeGlobalsPolyfillPlugin } from "@esbuild-plugins/node-globals-polyfill";
+import { readFile } from "node:fs/promises";
+
+const BASE_ACCOUNT_CONSTANTS_REGEX =
+  /@base-org\/account[/\\]dist[/\\]core[/\\]constants\.js$/;
+
+const replaceJsonImportAttributes = (code) =>
+  code.includes("with { type: 'json' }")
+    ? code.replace("with { type: 'json' }", "assert { type: 'json' }")
+    : null;
+
+const baseAccountEsbuildFix = () => ({
+  name: "base-account-json-import-fix",
+  setup(build) {
+    build.onLoad({ filter: BASE_ACCOUNT_CONSTANTS_REGEX }, async (args) => {
+      const contents = await readFile(args.path, "utf8");
+      const transformed = replaceJsonImportAttributes(contents);
+
+      if (!transformed) {
+        return undefined;
+      }
+
+      return {
+        contents: transformed,
+        loader: "js",
+      };
+    });
+  },
+});
+
+const baseAccountViteFix = () => ({
+  name: "vite-base-account-json-import-fix",
+  enforce: "pre",
+  transform(code, id) {
+    if (!BASE_ACCOUNT_CONSTANTS_REGEX.test(id)) {
+      return null;
+    }
+
+    const transformed = replaceJsonImportAttributes(code);
+    return transformed ?? null;
+  },
+});
 
 // ✅ Full configuration for React + Privy + Clerk + ethers.js
 export default defineConfig({
-  plugins: [react()],
+  plugins: [baseAccountViteFix(), react()],
 
   // Fix for Node built-ins (Buffer, process, etc.) when using ethers in browser
   optimizeDeps: {
@@ -13,6 +54,7 @@ export default defineConfig({
         global: "globalThis",
       },
       plugins: [
+        baseAccountEsbuildFix(),
         NodeGlobalsPolyfillPlugin({
           buffer: true,
           process: true,

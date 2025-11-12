@@ -3,7 +3,6 @@ import certificate from "../assets/certificate_form.png";
 import axios from "axios";
 import { mintNFT } from "../SmartContract";
 
-// dotenv.config();
 
 const MyForm = ({ cmp }) => {
     const [organization, setOrganization] = useState("");
@@ -11,6 +10,7 @@ const MyForm = ({ cmp }) => {
     const [participantName, setParticipantName] = useState("");
     const [certificateName, setCertificateName] = useState("");
     const [walletAddress, setWalletAddress] = useState("");
+    const [email,setEmail]=useState("")
     const [pdfData, setPDFData] = useState("");
     const [isRun,setIsRun]=useState(false)
     const certificateInput = useRef();
@@ -74,6 +74,23 @@ const MyForm = ({ cmp }) => {
             alert("Missing Pinata API credentials. Please set VITE_API_KEY and VITE_SECRET_KEY.");
             return;
         }
+        const res = await fetch("http://localhost:4000/getAddress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data?.wallAdd) {
+            const reason =
+                data?.message ||
+                "Unable to find a wallet address for the provided email.";
+            alert(reason);
+            throw new Error(reason);
+        }
+
+        const mappedWalletAddress = data.wallAdd.trim();
+        setWalletAddress(mappedWalletAddress);
 
         const url = "https://api.pinata.cloud/pinning/pinFileToIPFS";
         const headers = {
@@ -86,7 +103,7 @@ const MyForm = ({ cmp }) => {
             issue_date: new Date().toISOString(),
             organization,
             event,
-            walletAddress: walletAddress.trim(),
+            walletAddress: mappedWalletAddress,
         };
 
         try {
@@ -104,7 +121,11 @@ const MyForm = ({ cmp }) => {
             setJsonCID(jsonRes.data.IpfsHash);
 
             console.log("Pinata uploads complete, initiating mint.");
-            await mintNFT(jsonRes.data.IpfsHash, res.data.IpfsHash, walletAddress.trim());
+            await mintNFT(
+                jsonRes.data.IpfsHash,
+                res.data.IpfsHash,
+                mappedWalletAddress
+            );
         } catch (error) {
             console.error("Failed to upload to Pinata", error);
             alert(
@@ -117,37 +138,31 @@ const MyForm = ({ cmp }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsRun(true)
-        // call backend api here and pass data of csv from csvData StateVariable
         const blob = dataURItoBlob();
         if (!blob) {
             alert("Please upload a certificate PDF before submitting.");
             return;
         }
 
-        const trimmedWallet = walletAddress.trim();
-        if (!trimmedWallet) {
-            alert("Please enter the recipient's wallet address.");
+        
+        if (!email) {
+            alert("Please enter the recipient's email.");
             return;
         }
 
-        if (!/^0x[a-fA-F0-9]{40}$/.test(trimmedWallet)) {
-            alert("Wallet address must be a valid 42-character hex string starting with 0x.");
-            return;
-        }
+       
 
         const formData = new FormData();
         formData.append("file", blob, certificateName);
 
-       try {
-         await postCertificateToPinata(formData);
-       } catch (error) {
-        
-       }
-       finally{
-        setIsRun(false)
-       }
-        
+        setIsRun(true);
+        try {
+            await postCertificateToPinata(formData);
+        } catch (error) {
+            // errors handled inside postCertificateToPinata
+        } finally {
+            setIsRun(false);
+        }
     };
     return (
         <div className='flex items-center rounded-l-lg w-3/4 bg-[#ECECEC]'>
@@ -204,15 +219,15 @@ const MyForm = ({ cmp }) => {
                         />
                     </div>
                     <div className='flex flex-col mt-5'>
-                        <label htmlFor='wallet_address'>Recipient Wallet Address</label>
+                        <label htmlFor='wallet_address'>Recipient email</label>
                         <input
                             className='p-2 bg-gray-100 rounded-lg outline-my-purple mt-1'
                             type='text'
-                            onChange={(e) => setWalletAddress(e.target.value)}
-                            value={walletAddress}
-                            id='wallet_address'
-                            name='wallet_address'
-                            placeholder='0x...'
+                            onChange={(e) => setEmail(e.target.value)}
+                            value={email}
+                            id='email'
+                            name='email'
+                            placeholder='example@gmail.com'
                         />
                     </div>
                     <div className='flex flex-col mt-5'>
